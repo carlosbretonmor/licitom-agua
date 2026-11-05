@@ -12,7 +12,7 @@ Quien prepara ofertas de O&M de agua pierde mucho tiempo en tareas de poco valor
 
 # Cómo usarlo
 
-Entrar en licitom_AGUA.html, con un enlace directo a esa página de tu repositorio.
+Entrar en licitom_AGUA_v1.html, con un enlace directo a esa página de tu repositorio.
 
 Pulsar el botón ⬇ Download raw file, a la derecha, junto a Raw.
 
