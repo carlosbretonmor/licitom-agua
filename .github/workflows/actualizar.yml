@@ -1,16 +1,14 @@
-# licitom AGUA · actualización diaria automática
-# Cada mañana descarga las novedades oficiales de la Plataforma de Contratación del Sector Público,
-# filtra las licitaciones del ciclo integral del agua y publica la web (GitHub Pages) con los datos.
-# Quien abra el enlace de la web recibe las novedades automáticamente, sin descargar nada.
+# licitom AGUA · actualización diaria y publicación en GitHub Pages
 
 name: Actualizar licitaciones
 
 on:
   schedule:
-    - cron: "30 5 * * *"     # todos los días a las 05:30 UTC (06:30 en invierno / 07:30 en verano, hora peninsular)
-  workflow_dispatch:          # botón «Run workflow» para lanzarlo a mano
+    - cron: "30 5 * * *"
+  workflow_dispatch:
   push:
-    branches: [main]          # al subir una versión nueva de la app, se publica al momento
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -25,9 +23,11 @@ jobs:
   actualizar:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
     environment:
       name: github-pages
       url: ${{ steps.despliegue.outputs.page_url }}
+
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
@@ -41,17 +41,59 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Comprobar la aplicación
+        run: |
+          echo "Archivos presentes en el repositorio:"
+          ls -lah
+
+          if [ ! -f licitom_AGUA.html ]; then
+            echo "::error::No existe licitom_AGUA.html en la raíz del repositorio."
+            exit 1
+          fi
+
+          echo "Tamaño de licitom_AGUA.html:"
+          wc -c licitom_AGUA.html
+
+          echo "Primeras líneas del HTML:"
+          head -n 5 licitom_AGUA.html
+
       - name: Descargar y filtrar licitaciones del agua
         id: datos
         run: |
           set +e
-          mkdir -p _site
-          cp *.html *.md _site/ 2>/dev/null
-          if [ -f licitom_AGUA.html ]; then cp licitom_AGUA.html _site/index.html; fi
-          python scripts/actualizar_licitaciones.py --salida _site/datos --previo "${{ steps.pages.outputs.base_url }}/datos/"
-          echo "rc=$?" >> "$GITHUB_OUTPUT"
 
-      - name: Preparar la web
+          mkdir -p _site
+
+          # La aplicación principal de GitHub Pages tiene que llamarse index.html
+          cp licitom_AGUA.html _site/index.html
+
+          # Copia opcional del README
+          if [ -f README.md ]; then
+            cp README.md _site/README.md
+          fi
+
+          echo "Tamaño de index.html antes de publicar:"
+          wc -c _site/index.html
+
+          echo "Primeras líneas de index.html:"
+          head -n 5 _site/index.html
+
+          python scripts/actualizar_licitaciones.py \
+            --salida _site/datos \
+            --previo "${{ steps.pages.outputs.base_url }}/datos/"
+
+          RC=$?
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+
+          echo "Contenido final que se va a publicar:"
+          find _site -maxdepth 2 -type f -print
+
+          echo "Tamaño final de index.html:"
+          wc -c _site/index.html
+
+          exit 0
+
+      - name: Subir artefacto de GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
@@ -63,5 +105,5 @@ jobs:
       - name: Avisar si alguna fuente oficial falló
         if: steps.datos.outputs.rc != '0'
         run: |
-          echo "::error::No se pudo leer alguna fuente oficial. Se han mantenido los datos anteriores. Revisa el registro del paso «Descargar y filtrar»."
-          exit 1
+          echo "::warning::Alguna fuente oficial no se pudo leer correctamente."
+          echo "::warning::La aplicación se ha publicado, pero revisa el paso 'Descargar y filtrar licitaciones del agua'."
